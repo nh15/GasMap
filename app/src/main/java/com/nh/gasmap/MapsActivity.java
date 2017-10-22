@@ -1,9 +1,9 @@
 package com.nh.gasmap;
 
 import android.Manifest;
+import android.app.DialogFragment;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -15,11 +15,13 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
-import com.google.android.gms.common.SignInButton;
+
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -29,6 +31,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private GoogleMap mMap;
     private LocationManager mLocationManager;
     private Marker mMarker;
+    private LatLng mUserLocation;
+    private boolean mIsMoveCamera = true;
+    private MapView mMapView;
+    private MarkerOptions mUserMarker;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,17 +47,49 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+        // init
         mLocationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        mUserMarker = new MarkerOptions().icon(BitmapDescriptorFactory.fromResource(R.drawable.user));
+
         checkLocationPermission();
 
-        Button btn = (Button) findViewById(R.id.test);
-        btn.setOnClickListener(new View.OnClickListener() {
+        //mMapView = new MapView(this);
+
+        setupOnClickListener();
+    }
+
+    private void setupOnClickListener() {
+        Log.d(TAG, "setupOnClickListener()");
+        Button btnFilter = (Button) findViewById(R.id.btn_filter);
+        btnFilter.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                DialogFragment dialogFragment = new FilterDialogFragment();
+                dialogFragment.show(getFragmentManager(), "dialog");
+            }
+        });
 
+        Button btnLocation = (Button) findViewById(R.id.btn_location);
+        btnLocation.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Toast.makeText(MapsActivity.this, "location", Toast.LENGTH_SHORT).show();
+                mIsMoveCamera = true;
+                mMap.moveCamera(CameraUpdateFactory.zoomTo(17f));
+                mMap.animateCamera(CameraUpdateFactory.newLatLng(mUserLocation));
+            }
+        });
+
+        Button btnSearch = (Button) findViewById(R.id.btn_search);
+        btnSearch.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(MapsActivity.this, LocationAddress.class);
+                startActivity(intent);
             }
         });
     }
+
 
     @Override
     protected void onStart() {
@@ -89,10 +127,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap = googleMap;
 
         // Add a marker in Sydney and move the camera
-        LatLng sydney = new LatLng(-34, 151);
-        mMarker = mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-        mMap.animateCamera(CameraUpdateFactory.newLatLng(sydney));
-
+        mUserLocation = new LatLng(35.681167, 139.767052);
+        mMarker = mMap.addMarker(mUserMarker.position(mUserLocation));
+        mMap.moveCamera(CameraUpdateFactory.zoomTo(17f));
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(mUserLocation));
     }
 
     private void checkLocationPermission() {
@@ -119,7 +157,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private void requestLocationUpdates() {
         Log.d(TAG, "requestLocationUpdates()");
 
-        //mLocationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         try {
             mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 10, mLocationListener);
         } catch (SecurityException e) {
@@ -133,9 +170,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         public void onLocationChanged(Location location) {
             Log.d(TAG, "onLocationChanged()");
             mMarker.remove();
-            LatLng userLocation = new LatLng(location.getLatitude(), location.getLongitude());
-            mMarker = mMap.addMarker(new MarkerOptions().position(userLocation));
-            mMap.animateCamera(CameraUpdateFactory.newLatLng(userLocation));
+            mUserLocation = new LatLng(location.getLatitude(), location.getLongitude());
+            mMarker = mMap.addMarker(mUserMarker.position(mUserLocation));
+
+            // defaultもしくは現在地ボタンが押された→true : 現在地とともにカメラ移動
+            // 指で、または地図の位置を移動させた→false : カメラを動かさない
+            if (mIsMoveCamera) {
+                mMap.animateCamera(CameraUpdateFactory.newLatLng(mUserLocation));
+            }
         }
 
         @Override

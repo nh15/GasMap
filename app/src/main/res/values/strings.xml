@@ -1,4 +1,11 @@
 <resources>
-    <string name="app_name">GasMap</string>
-    <string name="title_activity_maps">Map</string>
+    <string name="app_name">GasStationMap</string>
+    <string name="title_activity_maps">GasStationMap</string>
+    <string name="filter_maps_activity">フィルター</string>
+    <string name="location_maps_activity">現在地</string>
+    <string name="search_maps_activity">検索</string>
+    <string name="item_location_search">住所</string>
+    <string name="help_location_search">ここに検索する住所を入力してください</string>
+    <string name="send_location_search">送信</string>
+    <string name="cancel_location_search">キャンセル</string>
 </resources>
