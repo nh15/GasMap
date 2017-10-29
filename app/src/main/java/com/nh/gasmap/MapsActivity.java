@@ -3,6 +3,7 @@ package com.nh.gasmap;
 import android.Manifest;
 import android.app.DialogFragment;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
@@ -26,15 +27,19 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback{
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
+    public static final String KEY_GET_DATA_STORAGE = "GET_DATA_STORAGE";
+
     private static final String TAG = "MapsActivity";
     private GoogleMap mMap;
     private LocationManager mLocationManager;
     private Marker mMarker;
     private LatLng mUserLocation;
     private boolean mIsMoveCamera = true;
-    private MapView mMapView;
     private MarkerOptions mUserMarker;
+    private SharedPreferences mSharedPreferences;
+    private DataStorage mDataStorage;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,14 +53,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mapFragment.getMapAsync(this);
 
         // init
+        init();
         mLocationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         mUserMarker = new MarkerOptions().icon(BitmapDescriptorFactory.fromResource(R.drawable.user));
-
         checkLocationPermission();
-
-        //mMapView = new MapView(this);
-
         setupOnClickListener();
+        // initここまで
+
+    }
+
+    private void init() {
+        mSharedPreferences = getSharedPreferences("GasStation", MODE_PRIVATE);
+        mSharedPreferences.registerOnSharedPreferenceChangeListener(mOnSharedPreferenceChangeListener);
+
+        mDataStorage = new DataStorage(mSharedPreferences);
     }
 
     private void setupOnClickListener() {
@@ -65,6 +76,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void onClick(View v) {
                 DialogFragment dialogFragment = new FilterDialogFragment();
+                Bundle bundle = new Bundle();
+                bundle.putSerializable(KEY_GET_DATA_STORAGE, mDataStorage);
+                dialogFragment.setArguments(bundle);
                 dialogFragment.show(getFragmentManager(), "dialog");
             }
         });
@@ -107,6 +121,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     protected void onDestroy() {
         Log.d(TAG, "onDestroy");
+        mSharedPreferences.unregisterOnSharedPreferenceChangeListener(mOnSharedPreferenceChangeListener);
         mLocationManager.removeUpdates(mLocationListener);
         super.onDestroy();
     }
@@ -126,7 +141,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         Log.d(TAG, "onMapReady");
         mMap = googleMap;
 
-        // Add a marker in Sydney and move the camera
+        //初期値：後々、GPSで取得した位置情報を初期値にする
         mUserLocation = new LatLng(35.681167, 139.767052);
         mMarker = mMap.addMarker(mUserMarker.position(mUserLocation));
         mMap.moveCamera(CameraUpdateFactory.zoomTo(17f));
@@ -195,4 +210,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             Log.d(TAG, "onProviderDisabled()");
         }
     };
+
+    private SharedPreferences.OnSharedPreferenceChangeListener mOnSharedPreferenceChangeListener =
+            new SharedPreferences.OnSharedPreferenceChangeListener() {
+                @Override
+                public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+                    //　全てのマーカーを削除し、選択されている銘柄のマーカーを設置する
+                }
+            };
 }
