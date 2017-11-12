@@ -2,7 +2,9 @@ package com.nh.gasmap;
 
 import android.Manifest;
 import android.app.DialogFragment;
+import android.app.LoaderManager;
 import android.content.Intent;
+import android.content.Loader;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -19,7 +21,6 @@ import android.widget.Toast;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
@@ -27,19 +28,24 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
-    public static final String KEY_GET_DATA_STORAGE = "GET_DATA_STORAGE";
+import java.util.List;
 
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
     private static final String TAG = "MapsActivity";
+
     private GoogleMap mMap;
     private LocationManager mLocationManager;
     private Marker mMarker;
     private LatLng mUserLocation;
     private boolean mIsMoveCamera = true;
-    private MarkerOptions mUserMarker;
+    private MarkerOptions mUserMarkerOptions;
     private SharedPreferences mSharedPreferences;
     private DataStorage mDataStorage;
+    private List<Marker> mGasStationMarkerList;
 
+    public static final String KEY_GET_DATA_STORAGE = "GET_DATA_STORAGE";
+    public static final String KEY_GET_URL = "GET_URL";
+    public static final String URL_GAS_STATION = "http://api.gogo.gs/v1.2/?apid=****&lat=35.671766&lon=139.613228&sort=d";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,21 +58,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        // init
         init();
-        mLocationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
-        mUserMarker = new MarkerOptions().icon(BitmapDescriptorFactory.fromResource(R.drawable.user));
-        checkLocationPermission();
-        setupOnClickListener();
-        // initここまで
-
     }
 
     private void init() {
+        checkLocationPermission();
+
         mSharedPreferences = getSharedPreferences("GasStation", MODE_PRIVATE);
         mSharedPreferences.registerOnSharedPreferenceChangeListener(mOnSharedPreferenceChangeListener);
 
         mDataStorage = new DataStorage(mSharedPreferences);
+
+        mLocationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        mUserMarkerOptions = new MarkerOptions().icon(BitmapDescriptorFactory.fromResource(R.drawable.user));
+
+        Bundle bundle = new Bundle();
+        bundle.putString(KEY_GET_URL, URL_GAS_STATION);
+        getLoaderManager().initLoader(0, bundle, mLoaderCallbacks);
+
+        setupOnClickListener();
     }
 
     private void setupOnClickListener() {
@@ -143,7 +153,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         //初期値：後々、GPSで取得した位置情報を初期値にする
         mUserLocation = new LatLng(35.681167, 139.767052);
-        mMarker = mMap.addMarker(mUserMarker.position(mUserLocation));
+        mMarker = mMap.addMarker(mUserMarkerOptions.position(mUserLocation));
         mMap.moveCamera(CameraUpdateFactory.zoomTo(17f));
         mMap.moveCamera(CameraUpdateFactory.newLatLng(mUserLocation));
     }
@@ -186,7 +196,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             Log.d(TAG, "onLocationChanged()");
             mMarker.remove();
             mUserLocation = new LatLng(location.getLatitude(), location.getLongitude());
-            mMarker = mMap.addMarker(mUserMarker.position(mUserLocation));
+            mMarker = mMap.addMarker(mUserMarkerOptions.position(mUserLocation));
 
             // defaultもしくは現在地ボタンが押された→true : 現在地とともにカメラ移動
             // 指で、または地図の位置を移動させた→false : カメラを動かさない
@@ -215,7 +225,52 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             new SharedPreferences.OnSharedPreferenceChangeListener() {
                 @Override
                 public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-                    //　全てのマーカーを削除し、選択されている銘柄のマーカーを設置する
+                    Log.d(TAG, "onSharedPreferenceChanged()");
+
+                    //全てのマーカーを削除し、選択されている銘柄のマーカーを設置する
+                    removeAllGasStationMarkers();
+                    String brand = sharedPreferences.getString(key, "FAILED");
+                    Toast.makeText(MapsActivity.this, brand, Toast.LENGTH_SHORT).show();
+                    switch (brand) {
+
+                        default:
+                            break;
+                    }
                 }
             };
+
+    private void removeAllGasStationMarkers() {
+        for (Marker marker: mGasStationMarkerList) {
+            marker.remove();
+        }
+    }
+
+    private LoaderManager.LoaderCallbacks<List<GasStation>> mLoaderCallbacks = new LoaderManager.LoaderCallbacks<List<GasStation>>() {
+        @Override
+        public Loader<List<GasStation>> onCreateLoader(int id, Bundle args) {
+            HttpAsyncTaskLoader loader = new HttpAsyncTaskLoader(getApplicationContext(), args.getString(KEY_GET_URL));
+            loader.forceLoad();
+            return loader;
+        }
+
+        @Override
+        public void onLoadFinished(Loader<List<GasStation>> loader, List<GasStation> data) {
+            Log.d(TAG, "onLoadFinished()");
+
+            if (loader.getId() == 0) {
+                if (data != null) {
+                    for (GasStation gasStation: data) {
+                        Log.d(TAG, "brand: " + gasStation.getBrand());
+                        //MarkerOptions options = new MarkerOptions().position(new LatLng(gasStation.getLatitude(), gasStation.getLongitude()));
+                        //mGasStationMarkerList.add(mMap.addMarker(options));
+                    }
+                }
+            }
+        }
+
+        @Override
+        public void onLoaderReset(Loader<List<GasStation>> loader) {
+        }
+    };
+
 }

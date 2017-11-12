@@ -29,11 +29,12 @@ public class FilterDialogFragment extends DialogFragment {
         .setPositiveButton("OK", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                Toast.makeText(getActivity(), "OK : " + selectedItem, Toast.LENGTH_SHORT).show();
-
                 try {
-                    if (!dataStorage.saveFilter(gasStationItems[which])) {
+                    if (dataStorage.saveFilter(selectedItem)) {
+                        Toast.makeText(getActivity(), "saved " + selectedItem, Toast.LENGTH_SHORT).show();
+                    } else {
                         Toast.makeText(getActivity(), "failed to save", Toast.LENGTH_SHORT).show();
+                        Log.w(TAG, "saveFilter failed");
                     }
                 } catch (NullPointerException e) {
                     Log.e(TAG, "Catch the NullPointerException.");
