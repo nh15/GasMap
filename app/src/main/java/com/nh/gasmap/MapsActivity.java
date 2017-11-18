@@ -28,11 +28,11 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
     private static final String TAG = "MapsActivity";
-
     private GoogleMap mMap;
     private LocationManager mLocationManager;
     private Marker mMarker;
@@ -43,6 +43,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private DataStorage mDataStorage;
     private List<Marker> mGasStationMarkerList;
 
+    public static final int REQUEST_LOCATION_ADDRESS = 0;
     public static final String KEY_GET_DATA_STORAGE = "GET_DATA_STORAGE";
     public static final String KEY_GET_URL = "GET_URL";
     public static final String URL_GAS_STATION = "http://api.gogo.gs/v1.2/?apid=****&lat=35.671766&lon=139.613228&sort=d";
@@ -67,7 +68,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mSharedPreferences = getSharedPreferences("GasStation", MODE_PRIVATE);
         mSharedPreferences.registerOnSharedPreferenceChangeListener(mOnSharedPreferenceChangeListener);
 
-        mDataStorage = new DataStorage(mSharedPreferences);
+        mGasStationMarkerList = new ArrayList<>();
+        mDataStorage = new DataStorage(mSharedPreferences, getApplicationContext());
 
         mLocationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         mUserMarkerOptions = new MarkerOptions().icon(BitmapDescriptorFactory.fromResource(R.drawable.user));
@@ -109,9 +111,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(MapsActivity.this, LocationAddress.class);
-                startActivity(intent);
+                startActivityForResult(intent, REQUEST_LOCATION_ADDRESS);
             }
         });
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_LOCATION_ADDRESS) {
+            if (resultCode == RESULT_OK) {
+                double[] location = {0.0, 0.0};
+                location = data.getDoubleArrayExtra(LocationAddress.KEY_GET_LOCATION);
+                LatLng latLng = new LatLng(location[0], location[1]);
+                mMap.animateCamera(CameraUpdateFactory.newLatLng(latLng));
+            }
+        }
     }
 
 
@@ -126,6 +140,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         Log.d(TAG, "onResume");
         requestLocationUpdates();
         super.onResume();
+    }
+
+    @Override
+    protected void onStop() {
+        Log.d(TAG, "onStop mUserLocation.latitude: " + mUserLocation.latitude + ", mUserLocation.longitude: " + mUserLocation.longitude);
+        //ユーザーの現在地を保存する(DataStorageのメソッドを呼ぶ)
+        Double latitude = mUserLocation.latitude;
+        Double longitude = mUserLocation.longitude;
+        mDataStorage.saveLastUserLocation(latitude.toString(), longitude.toString());
+        super.onStop();
     }
 
     @Override
@@ -151,8 +175,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         Log.d(TAG, "onMapReady");
         mMap = googleMap;
 
-        //初期値：後々、GPSで取得した位置情報を初期値にする
-        mUserLocation = new LatLng(35.681167, 139.767052);
+        Object[] location = mDataStorage.getLastUserLocation();
+        String latitude = (String)location[0];
+        String longitude = (String)location[1];
+        mUserLocation = new LatLng(Double.parseDouble(latitude), Double.parseDouble(longitude));
+        Log.d(TAG, "latitude: " + Double.parseDouble(latitude) + ", longitude: " + Double.parseDouble(longitude));
         mMarker = mMap.addMarker(mUserMarkerOptions.position(mUserLocation));
         mMap.moveCamera(CameraUpdateFactory.zoomTo(17f));
         mMap.moveCamera(CameraUpdateFactory.newLatLng(mUserLocation));

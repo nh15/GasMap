@@ -145,6 +145,7 @@ public class HttpAsyncTaskLoader extends AsyncTaskLoader<List<GasStation>> {
                         // flagが立っていたら情報を取得し、flagを戻す
                         if (tagFlag) {
                             //////テスト用//////
+                            Log.d(TAG, "parseXml() setBrand");
                             gasStation.setBrand(xmlPullParser.getText());
                             /////ここまで//////
                             tagFlag = false;
